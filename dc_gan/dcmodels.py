@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 from pathlib import Path
 from PIL import Image
+from torchsummary import summary
 
 
 class Generator(nn.Module):
