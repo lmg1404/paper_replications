@@ -60,16 +60,16 @@ class Generator(nn.Module):
         # d8 = self.down8(d7)
         
         # up
-        # u1 = self.up1(d8)
-        # u2 = self.up2(torch.cat([u1, d7], dim=1))
-        # u3 = self.up3(torch.cat([u2, d6], dim=1))
-        # u4 = self.up4(torch.cat([u3, d5], dim=1))
-        # u5 = self.up5(torch.cat([u4, d4], dim=1))
-        # u6 = self.up6(torch.cat([u5, d3], dim=1))
-        # u7 = self.up7(torch.cat([u6, d2], dim=1))
-        # final = self.final(torch.cat([u7, d1], dim=1))
+        u1 = self.up1(d8)
+        u2 = self.up2(torch.cat([u1, d7], dim=1))
+        u3 = self.up3(torch.cat([u2, d6], dim=1))
+        u4 = self.up4(torch.cat([u3, d5], dim=1))
+        u5 = self.up5(torch.cat([u4, d4], dim=1))
+        u6 = self.up6(torch.cat([u5, d3], dim=1))
+        u7 = self.up7(torch.cat([u6, d2], dim=1))
+        final = self.final(torch.cat([u7, d1], dim=1))
         
-        return d6
+        return final
         
 
 
