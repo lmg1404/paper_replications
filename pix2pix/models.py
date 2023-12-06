@@ -3,7 +3,7 @@ import torch
 from torchsummary import summary
 
 class Generator(nn.Module):
-    def __init__(self, features, img_channels):
+    def __init__(self, features:int = 64, img_channels:int = 3):
         super(Generator, self).__init__()
         # TODO: figure out skip connections from down to up sampling in UNet
         # we have to do this in forward, here will go our model
@@ -68,13 +68,43 @@ class Generator(nn.Module):
         
         return final
         
-model = Generator(64, 3).to("cuda")
-print(summary(model, (3, 512, 512)))
+
 
 
 class Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, features:int = 64, img_channels:int = 3):
         super(Discriminator, self).__init__() 
+        self.initial = nn.Sequential(
+            nn.Conv2d(img_channels*2, features, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2)
+        )
+        self.layers = nn.Sequential(
+            self._block(features, features*2, 4, 2, 1),
+            self._block(features*2, features*4, 4, 2, 1),
+            self._block(features*4, features*8, 4, 1, 1)
+        )
+        self.final = nn.Sequential(
+            nn.Conv2d(features*8, 1, 4, 1, 1, bias=False),
+            nn.Sigmoid()
+        )
+        self.model = nn.Sequential(self.initial, self.layers, self.final)
+        
+    def forward(self, x, y):
+        return self.model(torch.cat([x, y], dim=1))
 
-    def _block(self):
-        pass
+    def _block(self, in_channels, out_channels, kernel, stride, padding):
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel, stride, padding, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.LeakyReLU(0.2)
+        )
+        
+def test():
+    x = torch.randn((1, 3, 256, 256))
+    gen = Generator()
+    disc = Discriminator()
+    print(f"Generator output shape: {gen(x).size()}")
+    print(f"Discriminator output shape: {disc(x, x).size()}")
+
+if __name__ == "__main__":
+    test()
