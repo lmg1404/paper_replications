@@ -3,11 +3,11 @@
 Completed:
 - DCGAN with application cat faces (64x64)
 
-On Hold:
-- Pix2Pix City Facades (figure out local machine problems)
+Todo:
+- Pix2Pix City Facades, issue was entire downsampling block was actually upsampling
 
-Next:
-- Video Classification
+On Hold:
+- Video Classification (finish p2p)
 
 TODO:
-- read and annotate paper
+- train loop
