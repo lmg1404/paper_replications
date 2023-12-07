@@ -3,9 +3,11 @@
 Completed:
 - DCGAN with application cat faces (64x64)
 
+On Hold:
+- Pix2Pix City Facades (figure out local machine problems)
+
 Next:
-- Pix2Pix
+- Video Classification
 
 TODO:
-- Pix2Pix model creation is mostly done, I think the shapes are right but it keeps slowing my computer
-- I think the best course of action is to use AWS to build and train the model then find a way to save it to my machine/upload it here
+- read and annotate paper

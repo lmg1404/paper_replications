@@ -8,7 +8,7 @@ class Generator(nn.Module):
         
         # down
         self.down1 = nn.Sequential(
-            nn.Conv2d(img_channels, features, 4, 2, 1, bias=False),
+            nn.Conv2d(img_channels, features, 4, 2, 1, bias=False, padding_mode="reflect"),
             nn.LeakyReLU(0.2)
         )
         self.down2 = self._down_block(features, features*2, 4, 2, 1)
@@ -17,7 +17,10 @@ class Generator(nn.Module):
         self.down5 = self._down_block(features*8, features*8, 4, 2, 1)
         self.down6 = self._down_block(features*8, features*8, 4, 2, 1)
         self.down7 = self._down_block(features*8, features*8, 4, 2, 1)
-        self.down8 = self._down_block(features*8, features*8, 4, 2, 1)
+        self.down8 = nn.Sequential(
+            nn.Conv2d(features*8, features*8, 4, 2, 1, bias=False, padding_mode="reflect"),
+            nn.LeakyReLU(0.2)
+        )
         
         # up
         self.up1 = self._up_block(features*8, features*8, 4, 2, 1)
@@ -28,14 +31,14 @@ class Generator(nn.Module):
         self.up6 = self._up_block(features*8, features*2, 4, 2, 1)
         self.up7 = self._up_block(features*4, features, 4, 2, 1)
         self.final = nn.Sequential(
-            nn.Conv2d(features*2, img_channels, 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(features*2, img_channels, 4, 2, 1, bias=False),
             nn.Tanh()
         )
     
     
     def _down_block(self, in_channels, out_channels, kernel, stride, padding): 
         return nn.Sequential(
-            nn.ConvTranspose2d(in_channels, out_channels, kernel, stride, padding, bias=False),
+            nn.Conv2d(in_channels, out_channels, kernel, stride, padding, bias=False, padding_mode="reflect"),
             nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(0.2)
         )
@@ -56,8 +59,8 @@ class Generator(nn.Module):
         d4 = self.down4(d3)
         d5 = self.down5(d4)
         d6 = self.down6(d5)
-        # d7 = self.down7(d6)
-        # d8 = self.down8(d7)
+        d7 = self.down7(d6)
+        d8 = self.down8(d7)
         
         # up
         u1 = self.up1(d8)
@@ -69,6 +72,14 @@ class Generator(nn.Module):
         u7 = self.up7(torch.cat([u6, d2], dim=1))
         final = self.final(torch.cat([u7, d1], dim=1))
         
+        # print(f"u1: {u1.size()}")
+        # print(f"u2: {u2.size()}")
+        # print(f"u3: {u3.size()}")
+        # print(f"u4: {u4.size()}")
+        # print(f"u5: {u5.size()}")
+        # print(f"u6: {u6.size()}")
+        # print(f"u7: {u7.size()}")
+        # print(f"final: {final.size()}")
         return final
         
 
@@ -104,12 +115,10 @@ class Discriminator(nn.Module):
         
 def test():
     torch.cuda.empty_cache()
-    device = "cuda"
     x = torch.randn((1, 3, 256, 256))
-    gen = Generator().to(device)
+    gen = Generator()
     disc = Discriminator()
-    print(summary(gen, (3, 256, 256)))
-    # print(f"Generator output shape: {gen(torch.rand((1, 3, 256, 256)).to(device)).size()}")
+    print(f"Generator output shape: {gen(x).size()}")
     print(f"Discriminator output shape: {disc(x, x).size()}")
 
 if __name__ == "__main__":
