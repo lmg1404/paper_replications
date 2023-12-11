@@ -1,6 +1,9 @@
 import torch.nn as nn 
 import torch
-from torchsummary import summary
+from pathlib import Path
+from PIL import Image
+from torch.utils.data import Dataset
+import torchvision.transforms as transforms
 
 class Generator(nn.Module):
     def __init__(self, features:int = 64, img_channels:int = 3):
@@ -113,6 +116,43 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2)
         )
         
+        
+class Facades(Dataset):
+    
+    def __init__(self, targ_dir: str) -> None:
+        self.paths = list(Path(targ_dir).glob("*/*")) 
+        self.transforms1 = transforms.Compose(
+            [transforms.Resize(256),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                [0.5 for _ in range(3)], [0.5 for _ in range(3)]
+            )]
+        )
+        self.transforms2 = transforms.Compose([
+            transforms.Resize(size=(286, 286)),
+            transforms.RandomCrop(size=(256, 256)),
+        ])
+    
+    def load_image(self, idx: int) -> Image.Image:
+        image_path = self.paths[idx]
+        return Image.open(image_path)
+    
+    def __len__(self) -> int:
+        return len(self.paths)
+    
+    def __getitem__(self, idx: int) -> torch.Tensor:
+        img = self.load_image(idx)
+        
+        img_ten = self.transforms1(img)
+
+        real = img_ten[:, :, :256]
+        input = img_ten[:, :, 256:]
+
+        real = self.transforms2(real)
+        input = self.transforms2(input)
+
+        return real, input
+
 def test():
     torch.cuda.empty_cache()
     x = torch.randn((1, 3, 256, 256))
@@ -120,6 +160,8 @@ def test():
     disc = Discriminator()
     print(f"Generator output shape: {gen(x).size()}")
     print(f"Discriminator output shape: {disc(x, x).size()}")
+
+
 
 if __name__ == "__main__":
     test()
