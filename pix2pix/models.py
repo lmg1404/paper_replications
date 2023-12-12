@@ -37,6 +37,11 @@ class Generator(nn.Module):
             nn.ConvTranspose2d(features*2, img_channels, 4, 2, 1, bias=False),
             nn.Tanh()
         )
+        
+        # apply initialization
+        # NOTE: self.apply(fn) does so inplace
+        # NOTE: self._apply(fn) is NOT inplace and returns an object
+        self.apply(self._init_weights)
     
     
     def _down_block(self, in_channels, out_channels, kernel, stride, padding): 
@@ -85,6 +90,9 @@ class Generator(nn.Module):
         # print(f"final: {final.size()}")
         return final
         
+    def _init_weights(self, module):
+        if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
+            nn.init.normal_(tensor=module.weight, mean=0, std=0.02)
 
 
 
@@ -106,6 +114,9 @@ class Discriminator(nn.Module):
         )
         self.model = nn.Sequential(self.initial, self.layers, self.final)
         
+        # apply initialization in place
+        self.apply(self._init_weights)
+        
     def forward(self, x, y):
         return self.model(torch.cat([x, y], dim=1))
 
@@ -115,6 +126,10 @@ class Discriminator(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(0.2)
         )
+        
+    def _init_weights(self, module):
+        if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
+            nn.init.normal_(tensor=module.weight, mean=0, std=0.02)
         
         
 class Facades(Dataset):
