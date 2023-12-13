@@ -137,14 +137,14 @@ class Facades(Dataset):
     def __init__(self, targ_dir: str) -> None:
         self.paths = list(Path(targ_dir).glob("*/*")) 
         self.transforms1 = transforms.Compose(
-            [transforms.Resize(256),
+            [transforms.Resize(size=256, antialias=True),
             transforms.ToTensor(),
             transforms.Normalize(
                 [0.5 for _ in range(3)], [0.5 for _ in range(3)]
             )]
         )
         self.transforms2 = transforms.Compose([
-            transforms.Resize(size=(286, 286)),
+            transforms.Resize(size=(286, 286), antialias=True),
             transforms.RandomCrop(size=(256, 256)),
         ])
     

@@ -7,7 +7,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from models import Discriminator, Generator
+from models import Discriminator, Generator, Facades
 from tqdm import tqdm
 
 # set device
@@ -15,55 +15,90 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # hyperparameters
 LEARNING_RATE = 2e-4            # same as dc gan
-BATCH_SIZE = 1                  # 1-10 depending on what we're doing
+BATCH_SIZE = 4                  # 1-10 depending on what we're doing
 IMAGE_SIZE = 256
 CHANNEL_IMG = 3                 # check this
-EPOCHS = 50                     # anywhere from 50-75 would be good I think, early stopping is an option through board
+EPOCHS = 75                     # anywhere from 50-75 would be good I think, early stopping is an option through board
 BETA_1 = 0.5
 BETA_2 = 0.999
 LAMBDA = 100
 FEATURES_DISC = 64
 FEATURES_GEN = 64
 
+    
+# import dataset + preprocess already inside the object, maybe for inference we make another object?
+# depending on what directory we run from we use one or the other
+# dataset = Facades(targ_dir="../data/facades/")
+dataset = Facades(targ_dir="data/facades/")
+print(f"Length of dataset: {len(dataset)}")
+loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-# TODO: import dataset + preprocessing
-# TODO: select 4 images before turning into a generator object
-# TODO: turn datset object into data loader
 
-# TODO: initialize the generator and discriminator also load to device
-# TODO: set both gen and disc to train
+# initialize our models and set them to train
+gen = Generator(features=FEATURES_GEN, img_channels=CHANNEL_IMG).to(device)
+disc = Discriminator(features=FEATURES_DISC, img_channels=CHANNEL_IMG).to(device)
+gen.train()
+disc.train()
 
-# TODO: use Adam optimizer for discriminator and generator
 
-# TODO: find out how to use the custom loss function using  L1 loss
+# use Adam optimizer for discriminator and generator
+opt_gen = optim.Adam(gen.parameters(), lr=LEARNING_RATE, betas=(BETA_1, BETA_2))
+opt_disc = optim.Adam(disc.parameters(), lr=LEARNING_RATE, betas=(BETA_1, BETA_2))
 
-# TODO: select 4 images to show how model "learns" through epochs
+
+# initialize loss objects, just have to add them up later and do backwards
+bce = nn.BCELoss()
+l1 = nn.L1Loss()
+
 
 # TODO: use Tensorboard SummaryWriter, maybe make it neater this time
+writer_real = SummaryWriter(f"logs/real")
+writer_fake = SummaryWriter(f"logs/fake")
 
-# TODO: training for loop here
-    # TODO: tqdm, this was a good idea from last time
+
+for epoch in range(EPOCHS):
+    # tqdm, this was a good idea from last time
+    loop = tqdm(loader, total=len(loader), leave=False)
     
-    # TODO: go into our small batches for training
-    # TODO: something like for batch_idx, real, base in loop
-    
-        # TODO: real and base set to device or it will crash, no need for latent space here
+    # go into our small batches for training
+    for batch_idx, (y, x) in enumerate(loop):
+        # real and base set to device or it will crash, no need for latent space here
+        y = y.to(device)
+        x = x.to(device)
         
-        # TODO: run the base through generator: fake = gen(base)
         
-        # TODO: pass real through discriminator (30x30 I think is output)
-                # we might have to resize for computation
-        # TODO: show the dicriminator all 1s to maximize
-        # TODO: pass fake through discriminator
-        # TODO: show discriminator all 0s to minimize
-        # TODO: add the  L1 loss with gamma????????
-        # TODO: add then divide by 2 to slow training
-        # TODO: zero grad -> backward -> step etc etc
+        # run the base through generator: fake = gen(base)
+        z = gen(x)
+        #pass real through discriminator (30x30 I think is output)
+        disc_real = disc(x, y)
+        # show the dicriminator all 1s to maximize
+        loss_disc_real = bce(disc_real, torch.ones_like(disc_real))
+        # pass fake through discriminator
+        disc_fake = disc(x, z)
+        # show discriminator all 0s to minimize
+        loss_disc_fake = bce(disc_fake, torch.zeros_like(disc_fake))
+        # add then divide by 2 to slow training
+        loss_disc = (loss_disc_fake + loss_disc_real) / 2
         
+        # zero grad -> backward -> step etc etc
+        opt_disc.zero_grad()
+        loss_disc.backward(retain_graph=True)
+        opt_disc.step()
+        
+         
         # train the generator to MAXIMIZE log(D(G(base)))
-        # TODO: pass fake through disc one more time
-        # TODO: show the generator 1's to maximize
-        # TODO: zero grad -> backward -> step etc etc
+        # pass fake through disc one more time
+        gen_fake = disc(x, z)
+        # how the generator 1's to maximize
+        gen_bce = bce(gen_fake, torch.ones_like(gen_fake))
+        # add the  L1 loss with gamma????????
+        gen_reg = l1(z, x) * LAMBDA 
+        
+        # zero grad -> backward -> step etc etc
+        loss_gen = gen_bce + gen_reg
+        opt_gen.zero_grad()
+        loss_gen.backward()
+        opt_gen.step()
         
         # TODO set board if statement for batch idx
             # TODO: wrapper no grad
