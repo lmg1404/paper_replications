@@ -55,8 +55,9 @@ l1 = nn.L1Loss()
 # TODO: use Tensorboard SummaryWriter, maybe make it neater this time
 writer_real = SummaryWriter(f"logs/real")
 writer_fake = SummaryWriter(f"logs/fake")
+writer_losses = SummaryWriter(f"logs/losses")
 
-
+step = 0
 for epoch in range(EPOCHS):
     # tqdm, this was a good idea from last time
     loop = tqdm(loader, total=len(loader), leave=False)
@@ -100,7 +101,17 @@ for epoch in range(EPOCHS):
         opt_gen.zero_grad()
         loss_gen.backward()
         opt_gen.step()
-
+        
+        # also going to plot loss to see how the model does over time
+        if batch_idx % 8 == 0:
+            writer_losses.add_scalars("Architecture", {
+                'Generator':loss_gen,
+                'Discriminator':loss_disc
+            })
+            step += 1
+            
+        
+        
         # batch we put on the board
         if batch_idx == batch_selector:
             # no computational graph here
