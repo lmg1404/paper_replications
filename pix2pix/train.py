@@ -3,8 +3,6 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.optim as optim
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from models import Discriminator, Generator, Facades
@@ -27,12 +25,15 @@ FEATURES_GEN = 64
 
     
 # import dataset + preprocess already inside the object, maybe for inference we make another object?
-# depending on what directory we run from we use one or the other
-# dataset = Facades(targ_dir="../data/facades/")
-dataset = Facades(targ_dir="data/facades/")
-print(f"Length of dataset: {len(dataset)}")
+# need to be in ~/pix2pix/
+dataset = Facades(targ_dir="../data/facades/")
 loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
 
+# below will be the selected batch we will put on the tensorboard
+batch_selector = torch.randint(low=0, high=len(loader), size=(1,1)).item()
+print(f"Length of dataset: {len(dataset)}")
+print(f"Length of batches: {len(loader)}")
+print(f"Batch number we will put on TensorBoard: {batch_selector}")
 
 # initialize our models and set them to train
 gen = Generator(features=FEATURES_GEN, img_channels=CHANNEL_IMG).to(device)
@@ -99,12 +100,31 @@ for epoch in range(EPOCHS):
         opt_gen.zero_grad()
         loss_gen.backward()
         opt_gen.step()
-        
-        # TODO set board if statement for batch idx
-            # TODO: wrapper no grad
-                # TODO: fake the 4 images from above
-                # TODO: board the make grid for real
-                # TODO: board the make grid for fake
+
+        # batch we put on the board
+        if batch_idx == batch_selector:
+            # no computational graph here
+            with torch.no_grad():
+                # fake the 4 images from above
+                board_fake = gen(x)
+                # board the make grid for real
+                img_grid_real = torchvision.utils.make_grid(
+                    y, normalize=True
+                )
+                # board the make grid for fake
+                img_grid_fake = torchvision.utils.make_grid(
+                    board_fake, normalize=True
+                )
+                
+                writer_real.add_image("Real Facades", img_grid_real, global_step=epoch)
+                writer_fake.add_image("Fake Facade", img_grid_fake, global_step=epoch)
             
-            # TODO: add a step
-        # TODO: set description for our epochs
+        loop.set_description(f"Epoch [{epoch+1}/{EPOCHS}]")
+
+# save our models for inference later on
+# thinking about a computation combining pix2pix and WGAN but what else could be improved?
+# last GAN I replicate for a while, video or NLP is next
+torch.save({
+    'gen_state_dict':gen.state_dict(),
+    'disc_state_dict': disc.state_dict()
+}, 'Pix2Pix.pth')
