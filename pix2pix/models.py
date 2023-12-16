@@ -134,7 +134,7 @@ class Discriminator(nn.Module):
         
 class Facades(Dataset):
     
-    def __init__(self, targ_dir: str) -> None:
+    def __init__(self, targ_dir: str, train: bool) -> None:
         self.paths = list(Path(targ_dir).glob("*/*")) 
         self.transforms1 = transforms.Compose(
             [transforms.Resize(size=256, antialias=True),
@@ -147,6 +147,7 @@ class Facades(Dataset):
             transforms.Resize(size=(286, 286), antialias=True),
             transforms.RandomCrop(size=(256, 256)),
         ])
+        self.train = train
     
     def load_image(self, idx: int) -> Image.Image:
         image_path = self.paths[idx]
@@ -163,8 +164,9 @@ class Facades(Dataset):
         real = img_ten[:, :, :256]
         input = img_ten[:, :, 256:]
 
-        real = self.transforms2(real)
-        input = self.transforms2(input)
+        if self.train:
+            real = self.transforms2(real)
+            input = self.transforms2(input)
 
         return real, input
 
