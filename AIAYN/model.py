@@ -82,10 +82,13 @@ class EncoderBlock(nn.Module):
         self.ln1 = nn.LayerNorm(embed_dim)
         self.ff = FeedForward(embed_dim) 
         self.ln2 = nn.LayerNorm(embed_dim)
+        self.dropout = nn.Dropout(D_PROB)
     
     def forward(self, x):
-        x = self.ln1(x + self.mh(x, x, x))
-        x = self.ln2(x + self.ff(x))
+        x = self.mh(x, x, x)
+        x = self.ln1(x + self.dropout(x))
+        x = self.ff(x)
+        x = self.ln2(x + self.dropout(x))
         return x
 
 class DecoderBlock(nn.Module):
@@ -98,33 +101,52 @@ class DecoderBlock(nn.Module):
         self.ln2 = nn.LayerNorm(embed_dim)
         self.ff  = FeedForward(embed_dim) # TODO: fix
         self.ln3 = nn.LayerNorm(embed_dim)
+        self.dropout = nn.Dropout(D_PROB)
     
     def forward(self, x, enc: torch.Tensor):
         assert x.size() == enc.size(), f"Encoder output and decoder sublayer 1 output must be same shape: {enc.size()} {x.size()}"
-        x = self.ln1(x + self.mh1(x, x, x))
-        x = self.ln2(x + self.mh2(enc, x, enc)) # TODO: fix
-        x = self.ln3(x + self.ff(x))
+        x = self.mh1(x, x, x)
+        x = self.ln1(x + self.dropout(x))
+        x = self.mh2(enc, x, enc)
+        x = self.ln2(x + self.dropout(x))
+        x = self.ff(x)
+        x = self.ln3(x + self.dropout(x))
         return x
 
 # TODO
 class Transformer(nn.Module):
-    def __init__(self, N: int, num_heads: int, head_dim: int):
+    def __init__(self, N: int, num_heads: int, embed_dim: int, vocab_size: int, context: int):
         super().__init__()
-        self.in_emb = nn.Embedding()
-        self.out_emb = nn.Embedding()
-        self.encoder = nn.Sequential(*[EncoderBlock(num_heads, head_dim) for _ in range(N)])
-        self.decoder = nn.Sequential(*[DecoderBlock(num_heads, head_dim) for _ in range(N)])
-        self.lin = nn.Linear() # TODO: fix
-        self.sm = nn.Softmax()
+        self.in_emb = nn.Embedding(vocab_size, embed_dim) # (vocabsize x embed_dim) each token/word will have a 512 dim representation
+        self.out_emb = nn.Embedding(vocab_size, embed_dim)
+        self.encoder = nn.Sequential(*[EncoderBlock(num_heads, embed_dim) for _ in range(N)])
+        self.decoder = nn.ModuleList([DecoderBlock(num_heads, embed_dim) for _ in range(N)])
+        self.lin = nn.Linear(embed_dim, vocab_size)
+        self.dropout = nn.Dropout(D_PROB)
+        self.register_buffer('pos_enc', self.pos_encoding(context, embed_dim))
     
     def forward(self, x):
         x_enc = self.in_emb(x)
         x_dec = self.out_emb(x)
         
-        # TODO: additive positional encodings here
+        x_enc = self.dropout(x_enc + self.pos_enc)
+        x_dec = self.dropout(x_dec + self.pos_enc)
         
         x_enc = self.encoder(x_enc)
-        x_dec = self.decoder(x_dec, x_enc)
+        for decoder in self.decoder:
+            x_dec = decoder(x_dec, x_enc)
         x_dec = self.lin(x_dec)
-        x_dec = self.sm(x_dec)
         return x_dec
+    
+    def pos_encoding(self, max_len, d_model):
+        encoding = torch.zeros(max_len, d_model) # don't care about batches broadcasting will fix this
+        pow = 2 * torch.arange(0, d_model//2) / d_model
+        denom = 10_000 ** pow
+        pos = torch.arange(0, max_len).view(-1, 1)
+        encoding[:, ::2] = torch.sin(pos/denom) # evens
+        encoding[:, 1::2] = torch.cos(pos/denom) # odds
+        return encoding
+    
+    # TODO: inference
+    def generate(self):
+        pass
