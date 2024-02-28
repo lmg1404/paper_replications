@@ -63,13 +63,13 @@ class MultiHeadAttention(nn.Module):
         out = self.linear(cat)
         return out
 
-# TODO: prototype to finish
 class FeedForward(nn.Module):
-    def __init__(self):
+    def __init__(self, embed_dim: int):
+        # see section 3.3
         self.sublayer = nn.Sequential(
-            nn.Linear(),
+            nn.Linear(in_features=embed_dim, out_features=4 * embed_dim),
             nn.ReLU(),
-            nn.Linear()
+            nn.Linear(in_features=embed_dim, out_features=4* embed_dim)
         )
     
     def forward(self, x):
