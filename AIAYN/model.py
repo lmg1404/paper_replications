@@ -29,7 +29,7 @@ class Head(nn.Module):
     
     def forward(self, x):
         # t for tokens, so I think this is words in this case
-        _, t, d_k = x.shape 
+        _, t, d_k = x.size() 
         k = self.key(x)
         q = self.query(x)
         v = self.value(x)
@@ -49,17 +49,17 @@ class Head(nn.Module):
         
         return attn 
         
-# TODO: prototype to finish
 class MultiHeadAttention(nn.Module):
     """Multiply above head by h, which is the number of heads. Key that this is a sublayer"""
-    def __init__(self, num_heads: int, head_dim: int):
-        self.multihead = [Head(head_dim) for _ in range(num_heads)]
+    def __init__(self, num_heads: int, head_dim: int, embed_dim: int, mask: bool):
+        super().__init__()
+        self.multihead = [Head(head_dim, embed_dim, mask) for _ in range(num_heads)]
         # TODO: figure out dims
-        self.linear = nn.Linear(in_features=num_heads, out_features=head_dim)
+        self.linear = nn.Linear(in_features=embed_dim, out_features=embed_dim)
     
     def forward(self, x):
-        # TODO: find dims
-        cat = torch.cat([head(x) for head in self.multihead])
+        # we know dim -1 will be dim_model // num_heads so cat returns to dim_model
+        cat = torch.cat([head(x) for head in self.multihead], dim=-1)
         out = self.linear(cat)
         return out
 
