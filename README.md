@@ -1,13 +1,16 @@
 # Paper Replications Based on AI/ML Papers through Literature
 
-Completed:
-- DCGAN with application cat faces (64x64)
+# Deep Learning Paper Replications
 
-Todo:
-- Pix2Pix City Facades, issue was entire downsampling block was actually upsampling
+This repository contains implementations and replications of various deep learning papers. Each folder corresponds to a specific paper, providing code, datasets, and results.
 
-On Hold:
-- Video Classification (finish p2p)
+## Table of Contents
 
-TODO:
-- train loop
+- [DCGAN](/AIAYN)
+- [Attention is All You Need](/dc_gan)
+- [Pix2Pix](/pix2pix)
+- [SlowFast](/slowfast)
+- [Inflated 3D Convolutional Networks](/inflated3d_covnet)
+- [Speech Synthesis](/speech_synthesis)
+- [An Image is Worth 16x16 Words](/ViT)
+- [XGBoost](/xgboost)

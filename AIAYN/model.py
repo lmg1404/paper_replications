@@ -4,12 +4,7 @@ import torch.nn.functional as F
 from pathlib import Path
 from torch.utils.data import Dataset
 
-# hyper parameters
-# subject to change
-VOCAB_SIZE = 3  # hyperparameter depending on the task
-HEAD_SIZE = 8
-EMBED_DIM = 512
-HEAD_DIM = EMBED_DIM // HEAD_SIZE
+# hyper parameter
 D_PROB = 0.1
 
 class Head(nn.Module):
@@ -150,3 +145,7 @@ class Transformer(nn.Module):
     # TODO: inference
     def generate(self):
         pass
+    
+class DataHolder(Dataset):
+    def __init__(self):
+        super().__init__()
