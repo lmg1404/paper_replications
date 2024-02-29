@@ -12,3 +12,10 @@ This repository contains implementations and replications of various deep learni
 - [Speech Synthesis](/speech_synthesis)
 - [An Image is Worth 16x16 Words](/ViT)
 - [XGBoost](/xgboost)
+
+## Note:
+In each folder is a replication as well as it's annotated paper. Below are what some of the highlights mean:
+ - <span style="color:blue">Important Math</span>
+ - <span style="color:red">Important for Model Training</span>
+ - <span style="color:purple">Unsure/needs Further Research</span>
+ - <span style="color:Yellow">Generally Important or Neat Tidbits</span>
