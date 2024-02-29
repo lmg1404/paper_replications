@@ -15,10 +15,7 @@ This repository contains implementations and replications of various deep-learni
 
 ## Note:
 In each folder is a replication as well as its annotated paper. Below are what some of the highlights mean:
- - <code style="color:blue">Important Math</code>
- - <code style="color:red">Important for Model Training</code>
- - <code style="color:purple">Unsure/needs Further Research</code>
- - <code style="color:Yellow">Generally Important or Neat Tidbits</code>
-- ![#5dd8ff](https://placehold.co/15x15/5dd8ff/5dd8ff.png) `#w`
-- ![#c5f015](https://placehold.co/15x15/c5f015/c5f015.png) `#c5f015`
-- ![#1589F0](https://placehold.co/15x15/1589F0/1589F0.png) `#1589F0`
+- ![#5dd8ff](https://placehold.co/15x15/5dd8ff/5dd8ff.png) `#Important Math`
+- ![#ffa7c1](https://placehold.co/15x15/ffa7c1/ffa7c1.png) `#Important for Model Training`
+- ![#cda7ff](https://placehold.co/15x15/cda7ff/cda7ff.png) `#Unsure/Needs Further Research`
+- ![#ffea29](https://placehold.co/15x15/ffea29/ffea29.png) `#Generally Important or Neat Tidbits`
