@@ -8,7 +8,7 @@
 
 - Programming Language: Python
 - Deep Learning Framework: PyTorch
-- Datasets: TBD
+- Datasets: [Paraphrase Generation](https://github.com/dqxiu/ParaSCI/tree/master) or [Text Summarization](https://www.kaggle.com/datasets/gowrishankarp/newspaper-text-summarization-cnn-dailymail)
 - Key Modifications: TBD
 
 ### Results

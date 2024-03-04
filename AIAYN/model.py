@@ -120,18 +120,24 @@ class Transformer(nn.Module):
         self.dropout = nn.Dropout(D_PROB)
         self.register_buffer('pos_enc', self.pos_encoding(context, embed_dim))
     
-    def forward(self, x):
-        x_enc = self.in_emb(x)
-        x_dec = self.out_emb(x)
-        
-        x_enc = self.dropout(x_enc + self.pos_enc)
-        x_dec = self.dropout(x_dec + self.pos_enc)
-        
-        x_enc = self.encoder(x_enc)
+    def forward(self, src, trg):
+        x = self.decode(trg, self.encode(src))
+        x = self.lin(x)
+        return x
+    
+    # better to separate encode and decode so we can see what's happening downstream during inference
+    def encode(self, x):
+        x = self.in_emb(x)
+        x = self.dropout(x + self.pos_enc)
+        x = self.encoder(x)
+        return x
+    
+    def decode(self, x, src):
+        x = self.out_emb(x)
+        x = self.dropout(x + self.pos_enc)
         for decoder in self.decoder:
-            x_dec = decoder(x_dec, x_enc)
-        x_dec = self.lin(x_dec)
-        return x_dec
+            x = decoder(x, src)
+        return x
     
     def pos_encoding(self, max_len, d_model):
         encoding = torch.zeros(max_len, d_model) # don't care about batches broadcasting will fix this
