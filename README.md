@@ -4,8 +4,8 @@ This repository contains implementations and replications of various deep-learni
 
 ## Table of Contents
 
-- [DCGAN](/AIAYN)
-- [Attention is All You Need](/dc_gan)
+- [DCGAN](/dc_gan)
+- [Attention is All You Need](/AIAYN)
 - [Pix2Pix](/pix2pix)
 - [SlowFast](/slowfast)
 - [Inflated 3D Convolutional Networks](/inflated3d_covnet)
