@@ -1,7 +1,7 @@
 # import dependencies
 import torch
 import torch.nn as nn
-from torch.nn import functional
+import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
@@ -39,3 +39,10 @@ optimus.train()
 optimizer = optim.Adam(optimus.parameters(), lr=LR, betas=(BETA_1, BETA_2), eps=EPISILON)
 
 # we will have to F.crossentropy to get the loss, we can still do loss.backwards() check the docs
+for _ in EPOCHS:
+    for src, trg in loader:
+        B, T = trg.size() 
+        total_loss = 0
+        for i in range(1, T):
+            y_hat = optimus(src, trg[:, :i]) # source isn't changing, we are teacher forcing otherwise it would take much longer to train
+            loss = F.binary_cross_entropy(y_hat, trg[:, i+1]) # we show the next word, remember our output is what the next token will be not the entire sentence!
