@@ -102,7 +102,7 @@ class DecoderBlock(nn.Module):
         self.dropout = nn.Dropout(D_PROB)
     
     def forward(self, x, enc: torch.Tensor):
-        assert x.size() == enc.size(), f"Encoder output and decoder sublayer 1 output must be same shape: {enc.size()} {x.size()}"
+        # assert x.size() == enc.size(), f"Encoder output and decoder sublayer 1 output must be same shape: {enc.size()} {x.size()}"
         x = self.mh1(x, x, x)
         x = self.ln1(x + self.dropout(x))
         x = self.mh2(enc, x, enc)
@@ -239,6 +239,28 @@ class Paraphrase(Dataset):
             file = file.readlines()
             file = [line.strip()for line in file]
         return file
+    
+class CustomOptimizer:
+    def __init__(self, optmizer, d_model, warmup_steps):
+        self._optimizer = optmizer
+        self.d_model = d_model
+        self.warmup_steps = warmup_steps
+        self._step = 0
+        
+    def zero_grad(self):
+        self._optimizer.zero_grad()
+        
+    def step(self):
+        self._update_lr
+        self._optimizer.step()
+        
+    def _update_lr(self):
+        self._step += 1
+        
+        right = min(self._step**-0.5, self._step * self.warmup_steps**-1.5)
+        lr = (self.d_model**-0.5) * right
+        for g in self._optimizer.param_groups:
+            g['lr'] = lr 
     
 def custom_collate_fn(batch):
     """Goes into the DataLoader so that every sentence is padded correctly"""
