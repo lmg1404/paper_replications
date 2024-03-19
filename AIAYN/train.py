@@ -1,4 +1,5 @@
 # import dependencies
+print("Importing dependencies")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -26,6 +27,7 @@ HEADS = 8
 EMBED_DIM = 512
 
 # loading a preparing the data
+print("Loading the data")
 spacy_en = spacy.load('en_core_web_sm')
 src_file_path = "../../data/paraphrases/train/train.src"
 tgt_file_path = "../../data/paraphrases/train/train.tgt"
@@ -35,6 +37,7 @@ CONTEXT = paraphrase_data.max_context()
 loader = DataLoader(paraphrase_data, batch_size=64, collate_fn=custom_collate_fn, shuffle=True)
 
 # getting our transformer named optimus
+print("Setting up model and getting the custom optimizer")
 optimus = Transformer(LAYERS, HEADS, EMBED_DIM, VOCAB_SIZE, CONTEXT).to(device)
 optimus.train()
 
@@ -46,14 +49,18 @@ optimizer = CustomOptimizer(adam, EMBED_DIM, WARMUP_STEPS)
 writer = SummaryWriter(f"logs/loss")
 
 # we will have to F.crossentropy to get the loss, we can still do loss.backwards() check the docs
-for epoch in EPOCHS:
+print("Starting training")
+for epoch in range(EPOCHS):
     loop = tqdm(enumerate(loader), total=len(loader), leave=False)
     for batch_idx, (src, trg) in loop:
+        src = src.to(device)
+        trg = trg.to(device)
         B, T = trg.size() 
         total_loss = 0
         for i in range(1, T):
-            y_hat = optimus(src, trg[:, :i]) # source isn't changing, we are teacher forcing otherwise it would take much longer to train
-            loss = F.binary_cross_entropy(y_hat, trg[:, i]) # we show the next word, remember our output is what the next token will be not the entire sentence!
+            pred = optimus(src, trg[:, :i]) # source isn't changing, we are teacher forcing otherwise it would take much longer to train
+            B, _, C = pred.size()
+            loss = F.cross_entropy(pred.view(B, C), trg[:, i]) # we show the next word, remember our output is what the next token will be not the entire sentence!
             total_loss += loss
         avg_loss = total_loss / T
         
@@ -62,7 +69,7 @@ for epoch in EPOCHS:
         optimizer.step()
         
         if batch_idx % 50 == 0:
-            pass
+            writer.add_scalar("Loss", avg_loss)
         
         loop.set_description(f"Epoch [{epoch+1}/{EPOCHS}]")
-        
+    checkpoint(optimus, optimizer, epoch)

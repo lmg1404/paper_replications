@@ -53,7 +53,8 @@ class MultiHeadAttention(nn.Module):
     """Multiply above head by h, which is the number of heads. Key that this is a sublayer"""
     def __init__(self, num_heads: int, head_dim: int, embed_dim: int, mask: bool):
         super().__init__()
-        self.multihead = [Head(head_dim, embed_dim, mask) for _ in range(num_heads)]
+        # this needs to be a module list otherwise it won't be moved to the GPU
+        self.multihead = nn.ModuleList([Head(head_dim, embed_dim, mask) for _ in range(num_heads)])
         # TODO: figure out dims
         self.linear = nn.Linear(in_features=embed_dim, out_features=embed_dim)
     
@@ -249,6 +250,10 @@ class Paraphrase(Dataset):
         return file
     
 class CustomOptimizer:
+    """
+    Not my original idea, got it from a SO which linked to a GitHub
+    TODO: Find the SO to the GitHub as to not plagarize
+    """
     def __init__(self, optmizer, d_model, warmup_steps):
         self._optimizer = optmizer
         self.d_model = d_model
@@ -296,4 +301,4 @@ def checkpoint(model, optimizer, epoch):
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "epoch": epoch
-    }, f"models/optimus_checkpoint_epoch{epoch}")
+    }, f"models/optimus_checkpoint_epoch{epoch}.pth")
