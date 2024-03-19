@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pathlib import Path
 from torch.utils.data import Dataset
+import time
+from torch.nn.utils.rnn import pad_sequence
+
 
 # hyper parameter
 D_PROB = 0.1
@@ -128,13 +131,15 @@ class Transformer(nn.Module):
     # better to separate encode and decode so we can see what's happening downstream during inference
     def encode(self, x):
         x = self.in_emb(x)
-        x = self.dropout(x + self.pos_enc)
+        _, T, _ = x.size()
+        x = self.dropout(x + self.pos_enc[:T])
         x = self.encoder(x)
         return x
     
     def decode(self, x, src):
         x = self.out_emb(x)
-        x = self.dropout(x + self.pos_enc)
+        _, T, _ = x.size()
+        x = self.dropout(x + self.pos_enc[:T])
         for decoder in self.decoder:
             x = decoder(x, src)
         return x
@@ -152,6 +157,95 @@ class Transformer(nn.Module):
     def generate(self):
         pass
     
-class DataHolder(Dataset):
-    def __init__(self):
-        super().__init__()
+class Paraphrase(Dataset):
+    def __init__(self, src_dir, trg_dir, nlp):
+        """Initialization, we need a directory to load as well as tokenization framework"""
+        start = time.time()
+        self.nlp = nlp
+        src = self.open(src_dir)
+        trg = self.open(trg_dir)
+        data_pairs = list(zip(src, trg))
+        
+        # by itself this will take ~90 seconds, there's no real way to get around this besides compute
+        self.data = [(self.tokenize(doc), self.tokenize(summary)) for doc, summary in data_pairs]
+        
+        # just caching to make it much easier to access, save computation if needed
+        self._map()
+        self._max_context = max([len(src) for src, _ in self.data])
+        end = time.time()
+        print(f"Total time for dataset initialization was {end - start}")
+
+    def __len__(self):
+        """Length method that is needed for PyTorch DataLoader"""
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        """Get item method that is also needed to PyTorch's DataLoader"""
+        src, trg = self.data[idx]
+        src = torch.tensor([self.stoi[s] for s in src])
+        trg = torch.tensor([self.stoi[t] for t in trg])
+        return (src, trg)
+
+    def _map(self):
+        """Creates a string-to-index and index-to-string based on sorted vocab"""
+        self._vocabulary()
+        self.stoi = {v:i for v, i in zip(self.vocab, range(self.vocab_size()))}
+        self.itos = {i:v for v, i in zip(self.vocab, range(self.vocab_size()))}
+    
+    def map(self, map="both"):
+        """Getter method if we want to double check stoi and itos"""
+        try:
+            if map == "itos":
+                return self.itos
+            elif map == "stoi":
+                return self.stoi
+            elif map == "both":
+                return (self.itos, self.stoi)
+            else:
+                raise
+        except Exception as e:
+            raise AttributeError(f"Takes stoi, itos, or both. You gave {map}")
+
+    # need to find the max length so that we can pad accordingly
+    def _vocabulary(self):
+        """Finding the unique words in the train and test set together for itos and stoi"""
+        train_set = set([token for train, _ in self.data for token in train])
+        test_set = set([token for _, test in self.data for token in test])
+        t = train_set | test_set
+        t.add("<p>")
+        self.vocab = sorted(t)
+
+    def vocab(self):
+        """Getter method to check the vocab if we need it"""
+        return self.vocab
+
+    def vocab_size(self):
+        """Getter method for the vocab size"""
+        return len(self.vocab)
+
+    def max_context(self):
+        """Getter method for returning the max context"""
+        return self._max_context
+
+    def tokenize(self, text):
+        """Tokenization utilizing spaCy's tokenzation in list comprehension; tokens manually added since it's easier"""
+        t = [token.text.lower() for token in self.nlp.tokenizer(text)]
+        # it's easier if we manually add the tokens after spaCy's tokenization so we have more granularity
+        return ["<s>"] + t + ["<e>"]
+
+    def open(self, path):
+        """Opening the files using utf-8"""
+        with open(path, 'r', encoding='utf-8') as file:
+            file = file.readlines()
+            file = [line.strip()for line in file]
+        return file
+    
+def custom_collate_fn(batch):
+    """Goes into the DataLoader so that every sentence is padded correctly"""
+    train = [t for t, _ in batch]
+    test = [t for _, t in batch]
+    
+    pad_src = pad_sequence(train, batch_first=True, padding_value=2683)
+    pad_trg = pad_sequence(test, batch_first=True, padding_value=2683)
+
+    return pad_src, pad_trg
