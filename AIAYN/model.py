@@ -10,6 +10,10 @@ from torch.nn.utils.rnn import pad_sequence
 # hyper parameter
 D_PROB = 0.1
 
+# ---------------------------------------------------------------------------------------------
+#                             HELPER CLASSES
+# ---------------------------------------------------------------------------------------------
+
 class Head(nn.Module):
     """Just one head of multihead attention"""
     def __init__(self, head_dim: int, embed_dim: int, mask: bool):
@@ -111,7 +115,11 @@ class DecoderBlock(nn.Module):
         x = self.ln3(x + self.dropout(x))
         return x
 
-# TODO
+
+# ---------------------------------------------------------------------------------------------
+#                             (More Important) CLASSES
+# ---------------------------------------------------------------------------------------------
+
 class Transformer(nn.Module):
     def __init__(self, N: int, num_heads: int, embed_dim: int, vocab_size: int, context: int):
         super().__init__()
@@ -254,6 +262,12 @@ class CustomOptimizer:
         self._update_lr
         self._optimizer.step()
         
+    def state_dict(self):
+        return self._optimizer.state_dict()
+    
+    def get_step(self):
+        return self._step
+        
     def _update_lr(self):
         self._step += 1
         
@@ -261,7 +275,12 @@ class CustomOptimizer:
         lr = (self.d_model**-0.5) * right
         for g in self._optimizer.param_groups:
             g['lr'] = lr 
-    
+
+
+# ---------------------------------------------------------------------------------------------
+#                                   FUNCTIONS
+# ---------------------------------------------------------------------------------------------
+
 def custom_collate_fn(batch):
     """Goes into the DataLoader so that every sentence is padded correctly"""
     train = [t for t, _ in batch]
@@ -271,3 +290,10 @@ def custom_collate_fn(batch):
     pad_trg = pad_sequence(test, batch_first=True, padding_value=2683)
 
     return pad_src, pad_trg
+
+def checkpoint(model, optimizer, epoch):
+    torch.save({
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "epoch": epoch
+    }, f"models/optimus_checkpoint_epoch{epoch}")

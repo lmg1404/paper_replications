@@ -6,7 +6,7 @@ import torch.optim as optim
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from model import Transformer, Paraphrase, custom_collate_fn, CustomOptimizer
+from model import Transformer, Paraphrase, custom_collate_fn, CustomOptimizer, checkpoint
 from tqdm import tqdm
 import spacy
 import time
@@ -25,26 +25,44 @@ LAYERS = 6
 HEADS = 8
 EMBED_DIM = 512
 
+# loading a preparing the data
 spacy_en = spacy.load('en_core_web_sm')
 src_file_path = "../../data/paraphrases/train/train.src"
 tgt_file_path = "../../data/paraphrases/train/train.tgt"
-
 paraphrase_data = Paraphrase(src_file_path, tgt_file_path, spacy_en)
 VOCAB_SIZE = paraphrase_data.vocab_size()
 CONTEXT = paraphrase_data.max_context()
 loader = DataLoader(paraphrase_data, batch_size=64, collate_fn=custom_collate_fn, shuffle=True)
 
+# getting our transformer named optimus
 optimus = Transformer(LAYERS, HEADS, EMBED_DIM, VOCAB_SIZE, CONTEXT).to(device)
 optimus.train()
 
+# set up or optimizer such that we have our learning rate set
 adam = optim.Adam(optimus.parameters(), lr=LR, betas=(BETA_1, BETA_2), eps=EPISILON)
 optimizer = CustomOptimizer(adam, EMBED_DIM, WARMUP_STEPS)
 
+# TensorBoard
+writer = SummaryWriter(f"logs/loss")
+
 # we will have to F.crossentropy to get the loss, we can still do loss.backwards() check the docs
-for _ in EPOCHS:
-    for src, trg in loader:
+for epoch in EPOCHS:
+    loop = tqdm(enumerate(loader), total=len(loader), leave=False)
+    for batch_idx, (src, trg) in loop:
         B, T = trg.size() 
         total_loss = 0
         for i in range(1, T):
             y_hat = optimus(src, trg[:, :i]) # source isn't changing, we are teacher forcing otherwise it would take much longer to train
             loss = F.binary_cross_entropy(y_hat, trg[:, i]) # we show the next word, remember our output is what the next token will be not the entire sentence!
+            total_loss += loss
+        avg_loss = total_loss / T
+        
+        optimizer.zero_grad()
+        avg_loss.backwards()
+        optimizer.step()
+        
+        if batch_idx % 50 == 0:
+            pass
+        
+        loop.set_description(f"Epoch [{epoch+1}/{EPOCHS}]")
+        
