@@ -36,7 +36,10 @@ class Head(nn.Module):
         qk = (q@k.transpose(-1, -2)) / d_k ** 0.5
         
         if self.mask_bool:
-            qk = qk.masked_fill(self.mask[:t, :t] == 0, float('-inf'))
+            try:
+                qk = qk.masked_fill(self.mask[:t, :t] == 0, float('-inf'))
+            except Exception as e:
+                assert f"{Exception}, shapes qk: {qk.size()} and mask: {self.mask[:t, :t].size()}"
             
         # 0 is among batches so ith, jth inputs in each batch add to 1, we don't want this
         # 1 is through the columns, which is the word so maybe
