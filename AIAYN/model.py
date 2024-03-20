@@ -296,9 +296,11 @@ def custom_collate_fn(batch):
 
     return pad_src, pad_trg
 
-def checkpoint(model, optimizer, epoch):
+def checkpoint(model, optimizer, batch, epoch):
     torch.save({
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
-        "epoch": epoch
-    }, f"models/optimus_checkpoint_epoch{epoch}.pth")
+        "epoch": epoch,
+        "batch": batch
+    }, f"models/optimus_checkpoints_epoch{epoch}_batch{batch}.pth")
+    
