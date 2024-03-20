@@ -85,7 +85,3 @@ class CatFaces(Dataset):
         else:
             return img
         
-gen = Generator(100, 64, 3)
-dis = Discriminator(64, 3)
-
-print(gen(torch.rand((1, 100, 1, 1))).size())
