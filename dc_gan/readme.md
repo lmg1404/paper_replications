@@ -30,4 +30,29 @@ Summarize the results of your replication. Include metrics, comparisons with the
 
 ### Usage
 
-Provide instructions on how to run or reproduce your implementation. Include any dependencies, setup instructions, and example commands.
+Usage can be found at the end of `train.py` with the .pth file. All that's needed from this folder is `dcmodels.py` and `DCGAN.pth`.
+All that needs to be done is load the generator into a variable using the same parameters as before and load the checkpoint from the .pth into the model.
+Then the model needs to be set to evaluation as to avoid making a computational graph since we are not training anymore! We also need to load the .pth dictionary
+into the GPU since we don't really need the GPU any more, this is a pretty small model creating small images:
+```
+CHANNEL_IMG = 3 
+Z_DIM = 100
+FEATURES_GEN = 64
+
+checkpoint = torch.load("DCGAN.pth", map_location=torch.device('cpu'))
+
+gen = Generator(Z_DIM, FEATURES_GEN, CHANNEL_IMG)
+gen.load_state_dict(checkpoint["gen_state_dict"])
+gen.eval();
+```
+
+A random image function was created as to create a single random noise tensor: 
+```
+def show_random_noise(generator, random_noise):
+  img = torch.squeeze(gen(noise))
+  img = (img - img.min()) / (img.max() - img.min())
+  img = img * 255
+  img = img.int()
+  plt.imshow(img.permute(1, 2, 0).detach().numpy())
+  plt.axis("off")
+```
