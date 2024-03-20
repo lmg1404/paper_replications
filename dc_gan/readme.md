@@ -26,7 +26,18 @@ This one was used since we have no lables and a large amount of data, close to 1
 
 ### Results
 
-Summarize the results of your replication. Include metrics, comparisons with the original paper (if available), and any insights gained during the process.
+All in all compared to the diffusion models used today, this was a very simple network that I trained on my own laptop's NVIDIA GeForce RTX 3050 Ti Laptop GPU. The results from the  model are better than I expected them to be
+after I followed the paper's specifications on the model exactly.
+![25 images from the model](generated_images/25catfacesingrid.png)
+
+The paper employs the use of traversing a dimension and seeing how it changes the model's output. I assumed that they modified the dimension by adding/subtracting so that's what I did in the inference notebook. In initial testing I found
+that larger numbers means we can use less steps to see how this dimension changes the outputs.
+![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at0with10steps.png)
+![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at10with10steps.png)
+![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at13with10steps.png)
+![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at14with10steps.png)
+![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at26with10steps.png)
+![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at6with10steps.png)
 
 ### Usage
 
@@ -56,3 +67,5 @@ def show_random_noise(generator, random_noise):
   plt.imshow(img.permute(1, 2, 0).detach().numpy())
   plt.axis("off")
 ```
+
+The rest of these functions and among other things can be found in the [inference notebook](inference.ipynb)
