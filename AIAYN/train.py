@@ -10,21 +10,31 @@ from torch.utils.tensorboard import SummaryWriter
 from model import Transformer, Paraphrase, custom_collate_fn, CustomOptimizer, checkpoint
 from tqdm import tqdm
 import spacy
-import time
+import argparse
 
 # set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+parser = argparse.ArgumentParser(description="Getting some hyper parameters")
+parser.add_argument('--batchsize', type=int, help='batchsize for training our model', required=True)
+parser.add_argument('--epochs', type=int, help='number of training loops to train', required=True)
+parser.add_argument('--layers', type=int, help='number of layers in encoder and decoder', required=True)
+parser.add_argument('--heads', type=int, help='number of heads in multiheaded attention', required=True)
+parser.add_argument('--dims', type=int, help='size of vectors representing a token', required=True)
+
+args = parser.parse_args()
 
 # hyper parameters
 LR = 0.0001
 BETA_1 = 0.9
 BETA_2 = 0.98
 EPISILON = 1e-9
-EPOCHS = 10
+EPOCHS = args.epochs
+BATCH = args.batchsize
 WARMUP_STEPS = 4000
-LAYERS = 4
-HEADS = 4
-EMBED_DIM = 256
+LAYERS = args.layers
+HEADS = args.heads
+EMBED_DIM = args.dims
 
 # loading a preparing the data
 print("Loading the data")
@@ -34,7 +44,7 @@ tgt_file_path = "../../data/paraphrases/train/train.tgt"
 paraphrase_data = Paraphrase(src_file_path, tgt_file_path, spacy_en)
 VOCAB_SIZE = paraphrase_data.vocab_size()
 CONTEXT = paraphrase_data.max_context()
-loader = DataLoader(paraphrase_data, batch_size=16, collate_fn=custom_collate_fn, shuffle=True)
+loader = DataLoader(paraphrase_data, batch_size=BATCH, collate_fn=custom_collate_fn, shuffle=True)
 
 # getting our transformer named optimus
 print("Setting up model and getting the custom optimizer")
