@@ -28,13 +28,23 @@ This one was used since we have no labels and a large amount of data, close to 1
 
 All in all, compared to the diffusion models used today, this was a very simple network that I trained on my own laptop's NVIDIA GeForce RTX 3050 Ti Laptop GPU. The results from the  model are better than I expected them to be
 after I followed the paper's specifications on the model exactly.
+
+
 ![25 images from the model](generated_images/25catfacesingrid.png)
 
 The paper employs the use of traversing a dimension and seeing how it changes the model's output. I assumed that they modified the dimension by adding/subtracting so that's what I did in the inference notebook. In initial testing I found
 that larger numbers mean we can use fewer steps to see how this dimension changes the outputs. This idea was from the section titled "Walking the Latent Space".
+
+
 Sometimes walking the latent space resulted in a different cat slowly being created until convergence.
+
+
 ![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at0with10steps.png)
+
+
 Other times a dimension would modify features into strange blobs, in this case, the eyes.
+
+
 ![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at10with10steps.png)
 ![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at13with10steps.png)
 ![Changes in cat faces by changing a dimension](generated_images/faceswithdelta3at14with10steps.png)
