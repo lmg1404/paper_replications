@@ -134,6 +134,7 @@ class Transformer(nn.Module):
         self.lin = nn.Linear(embed_dim, vocab_size)
         self.dropout = nn.Dropout(D_PROB)
         self.register_buffer('pos_enc', self.pos_encoding(context, embed_dim))
+        self.apply(self._init_weights)
     
     def forward(self, src, trg):
         x = self.decode(trg, self.encode(src))
@@ -166,7 +167,31 @@ class Transformer(nn.Module):
         return encoding
     
     # TODO: inference
-    def generate(self):
+    def generate(self, sentence, start_token_idx: int, max_tokens, greedy=True):
+        """Generation of text from an input given that we are greedy decoding or using a multinomial"""
+        assert self.training, "Transformer model should be in training mode"
+        
+        # check shapes of sentence, put start token into torch array
+        if len(sentence.shape) < 2 and isinstance(sentence, torch.Tensor):
+            sentence = sentence[None, :]
+        else:
+            assert isinstance(sentence, torch.Tensor), "Input sentence is not a torch tensor"
+            assert len(sentence.shape) <= 2, f"Input sentence has more than 2 dimensions, has {len(sentence.shape)}"
+            
+        src = sentence
+        trg = torch.tensor([[start_token_idx]])
+        
+        for _ in range(max_tokens):
+            logits = self(src, trg)
+            logits = logits[:, -1, :] # final time step
+            probs = F.softmax(logits, dim=-1)
+            if greedy:
+                probs = torch.argmax(probs, dim=-1, keepdim=True)
+            else:
+                probs = torch.multinomial(probs, num_samples=1)
+            trg = torch.cat((trg, probs), dim=1)
+    
+    def _init_weights(self, module):
         pass
     
 class Paraphrase(Dataset):
