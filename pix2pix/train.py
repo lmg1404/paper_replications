@@ -6,6 +6,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from models import Discriminator, Generator, Facades
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 # set device
@@ -16,7 +17,7 @@ LEARNING_RATE = 2e-4            # same as dc gan
 BATCH_SIZE = 4                  # 1-10 depending on what we're doing
 IMAGE_SIZE = 256
 CHANNEL_IMG = 3                 # check this
-EPOCHS = 75                     # anywhere from 50-75 would be good I think, early stopping is an option through board
+EPOCHS = 10                     # anywhere from 50-75 would be good I think, early stopping is an option through board
 BETA_1 = 0.5
 BETA_2 = 0.999
 LAMBDA = 100
@@ -61,7 +62,6 @@ step = 0
 for epoch in range(EPOCHS):
     # tqdm, this was a good idea from last time
     loop = tqdm(loader, total=len(loader), leave=False)
-    
     # go into our small batches for training
     for batch_idx, (y, x) in enumerate(loop):
         # real and base set to device or it will crash, no need for latent space here
@@ -93,7 +93,6 @@ for epoch in range(EPOCHS):
         gen_fake = disc(x, z)
         # how the generator 1's to maximize
         gen_bce = bce(gen_fake, torch.ones_like(gen_fake))
-        # add the  L1 loss with gamma????????
         gen_reg = l1(z, x) * LAMBDA 
         
         # zero grad -> backward -> step etc etc
@@ -101,24 +100,26 @@ for epoch in range(EPOCHS):
         opt_gen.zero_grad()
         loss_gen.backward()
         opt_gen.step()
-        
+                
         # also going to plot loss to see how the model does over time
         if batch_idx % 8 == 0:
-            writer_losses.add_scalars("Architecture", {
-                'Generator':loss_gen,
-                'Discriminator':loss_disc
-            })
+            # writer_losses.add_scalars("Architecture", {
+            #     'Generator':loss_gen,
+            #     'Discriminator':loss_disc
+            # }, global_step=step)
+            writer_losses.add_scalar("Generator Loss", loss_gen, step)
             step += 1
-            
-        
-        
+
         # batch we put on the board
         if batch_idx == batch_selector:
             # no computational graph here
+            print(y.size())
             with torch.no_grad():
                 # fake the 4 images from above
                 board_fake = gen(x)
                 # board the make grid for real
+                y = y.cpu()
+                plt.imshow(y[0].permute(1, 2, 0))
                 img_grid_real = torchvision.utils.make_grid(
                     y, normalize=True
                 )
