@@ -1,6 +1,6 @@
 # Deep Learning Paper Replications
 
-This repository contains implementations and replications of various deep-learning papers. Each folder corresponds to a specific paper, providing code, datasets, and results.
+This repository contains implementations and replications of various deep-learning papers. Each folder corresponds to a specific paper, providing code, dataset sources, and results.
 
 ## Table of Contents
 
