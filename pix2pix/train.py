@@ -27,7 +27,7 @@ FEATURES_GEN = 64
     
 # import dataset + preprocess already inside the object, maybe for inference we make another object?
 # need to be in ~/pix2pix/
-dataset = Facades(targ_dir="../data/facades/", train=True)
+dataset = Facades(targ_dir="../data/facades/train/", train=True)
 loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 # below will be the selected batch we will put on the tensorboard
