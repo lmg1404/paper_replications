@@ -4,6 +4,7 @@ import torchvision
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torchvision.utils import save_image
 from torch.utils.tensorboard import SummaryWriter
 from models import Discriminator, Generator, Facades
 import matplotlib.pyplot as plt
@@ -14,10 +15,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # hyperparameters
 LEARNING_RATE = 2e-4            # same as dc gan
-BATCH_SIZE = 4                  # 1-10 depending on what we're doing
+BATCH_SIZE = 1                  # facades was done with batch size of 1
 IMAGE_SIZE = 256
 CHANNEL_IMG = 3                 # check this
-EPOCHS = 10                     # anywhere from 50-75 would be good I think, early stopping is an option through board
+EPOCHS = 100                    # they trained the facades for 200 epochs, that's feasible on my machine
 BETA_1 = 0.5
 BETA_2 = 0.999
 LAMBDA = 100
@@ -49,7 +50,7 @@ opt_disc = optim.Adam(disc.parameters(), lr=LEARNING_RATE, betas=(BETA_1, BETA_2
 
 
 # initialize loss objects, just have to add them up later and do backwards
-bce = nn.BCELoss()
+bce = nn.BCEWithLogitsLoss()
 l1 = nn.L1Loss()
 
 
@@ -61,13 +62,12 @@ writer_losses = SummaryWriter(f"logs/losses")
 step = 0
 for epoch in range(EPOCHS):
     # tqdm, this was a good idea from last time
-    loop = tqdm(loader, total=len(loader), leave=False)
+    loop = tqdm(loader, total=len(loader), leave=True)
     # go into our small batches for training
-    for batch_idx, (y, x) in enumerate(loop):
+    for batch_idx, (x, y) in enumerate(loop):
         # real and base set to device or it will crash, no need for latent space here
-        y = y.to(device)
         x = x.to(device)
-        
+        y = y.to(device)
         
         # run the base through generator: fake = gen(base)
         z = gen(x)
@@ -87,19 +87,20 @@ for epoch in range(EPOCHS):
         loss_disc.backward(retain_graph=True)
         opt_disc.step()
         
-         
         # train the generator to MAXIMIZE log(D(G(base)))
         # pass fake through disc one more time
         gen_fake = disc(x, z)
         # how the generator 1's to maximize
         gen_bce = bce(gen_fake, torch.ones_like(gen_fake))
-        gen_reg = l1(z, x) * LAMBDA 
+        gen_reg = l1(z, y) * LAMBDA 
+        loss_gen = gen_bce + gen_reg
         
         # zero grad -> backward -> step etc etc
-        loss_gen = gen_bce + gen_reg
         opt_gen.zero_grad()
         loss_gen.backward()
         opt_gen.step()
+                
+        loop.set_postfix({"L1": gen_reg.item(), "BCE": gen_bce.item(), "Disc": loss_disc.item()})
                 
         # also going to plot loss to see how the model does over time
         if batch_idx % 8 == 0:
@@ -113,13 +114,10 @@ for epoch in range(EPOCHS):
         # batch we put on the board
         if batch_idx == batch_selector:
             # no computational graph here
-            print(y.size())
             with torch.no_grad():
                 # fake the 4 images from above
                 board_fake = gen(x)
                 # board the make grid for real
-                y = y.cpu()
-                plt.imshow(y[0].permute(1, 2, 0))
                 img_grid_real = torchvision.utils.make_grid(
                     y, normalize=True
                 )
@@ -132,6 +130,10 @@ for epoch in range(EPOCHS):
                 writer_fake.add_image("Fake Facade", img_grid_fake, global_step=epoch)
             
         loop.set_description(f"Epoch [{epoch+1}/{EPOCHS}]")
+    temp = gen(x)
+    image = temp[0]
+    save_image(image, f"images/epoch{epoch+1}.png")
+        
 
 # save our models for inference later on
 # thinking about a computation combining pix2pix and WGAN but what else could be improved?

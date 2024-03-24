@@ -4,6 +4,9 @@ from pathlib import Path
 from PIL import Image
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
+import numpy as np
+import albumentations as A 
+from albumentations.pytorch import ToTensorV2
 
 class Generator(nn.Module):
     def __init__(self, features:int = 64, img_channels:int = 3):
@@ -22,19 +25,19 @@ class Generator(nn.Module):
         self.down7 = self._down_block(features*8, features*8, 4, 2, 1)
         self.down8 = nn.Sequential(
             nn.Conv2d(features*8, features*8, 4, 2, 1, bias=False, padding_mode="reflect"),
-            nn.LeakyReLU(0.2)
+            nn.ReLU()
         )
         
         # up
-        self.up1 = self._up_block(features*8, features*8, 4, 2, 1)
-        self.up2 = self._up_block(features*16, features*8, 4, 2, 1)
-        self.up3 = self._up_block(features*16, features*8, 4, 2, 1)
+        self.up1 = self._up_block(features*8, features*8, 4, 2, 1, dropout=True)
+        self.up2 = self._up_block(features*16, features*8, 4, 2, 1, dropout=True)
+        self.up3 = self._up_block(features*16, features*8, 4, 2, 1, dropout=True)
         self.up4 = self._up_block(features*16, features*8, 4, 2, 1)
         self.up5 = self._up_block(features*16, features*4, 4, 2, 1)
         self.up6 = self._up_block(features*8, features*2, 4, 2, 1)
         self.up7 = self._up_block(features*4, features, 4, 2, 1)
         self.final = nn.Sequential(
-            nn.ConvTranspose2d(features*2, img_channels, 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(features*2, img_channels, 4, 2, 1),
             nn.Tanh()
         )
         
@@ -51,13 +54,20 @@ class Generator(nn.Module):
             nn.LeakyReLU(0.2)
         )
     
-    def _up_block(self, in_channels, out_channels, kernel, stride, padding):
-        return nn.Sequential(
-            nn.ConvTranspose2d(in_channels, out_channels, kernel, stride, padding, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.Dropout2d(0.5),
-            nn.LeakyReLU(0.2)
-        )
+    def _up_block(self, in_channels, out_channels, kernel, stride, padding, dropout=False):
+        if dropout:
+            return nn.Sequential(
+                nn.ConvTranspose2d(in_channels, out_channels, kernel, stride, padding, bias=False),
+                nn.BatchNorm2d(out_channels),
+                nn.Dropout2d(0.5),
+                nn.ReLU()
+            )
+        else:
+            return nn.Sequential(
+                nn.ConvTranspose2d(in_channels, out_channels, kernel, stride, padding, bias=False),
+                nn.BatchNorm2d(out_channels),
+                nn.LeakyReLU(0.2)
+            )
         
     def forward(self, x):
         # down
@@ -79,21 +89,12 @@ class Generator(nn.Module):
         u6 = self.up6(torch.cat([u5, d3], dim=1))
         u7 = self.up7(torch.cat([u6, d2], dim=1))
         final = self.final(torch.cat([u7, d1], dim=1))
-        
-        # print(f"u1: {u1.size()}")
-        # print(f"u2: {u2.size()}")
-        # print(f"u3: {u3.size()}")
-        # print(f"u4: {u4.size()}")
-        # print(f"u5: {u5.size()}")
-        # print(f"u6: {u6.size()}")
-        # print(f"u7: {u7.size()}")
-        # print(f"final: {final.size()}")
+
         return final
         
     def _init_weights(self, module):
         if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
             nn.init.normal_(tensor=module.weight, mean=0, std=0.02)
-
 
 
 class Discriminator(nn.Module):
@@ -112,13 +113,16 @@ class Discriminator(nn.Module):
             nn.Conv2d(features*8, 1, 4, 1, 1, bias=False),
             nn.Sigmoid()
         )
-        self.model = nn.Sequential(self.initial, self.layers, self.final)
         
         # apply initialization in place
         self.apply(self._init_weights)
         
     def forward(self, x, y):
-        return self.model(torch.cat([x, y], dim=1))
+        x = torch.cat([x, y], dim=1)
+        x = self.initial(x)
+        x = self.layers(x)
+        x = self.final(x)
+        return x
 
     def _block(self, in_channels, out_channels, kernel, stride, padding):
         return nn.Sequential(
@@ -135,20 +139,27 @@ class Discriminator(nn.Module):
 class Facades(Dataset):
     
     def __init__(self, targ_dir: str, train: bool) -> None:
-        self.paths = list(Path(targ_dir).glob("*/*")) 
-        self.transforms1 = transforms.Compose(
-            [transforms.Resize(size=256, antialias=True),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                [0.5 for _ in range(3)], [0.5 for _ in range(3)]
-            )]
+        paths = list(Path(targ_dir).glob("*/*")) 
+        if not paths:
+            paths = list(Path(targ_dir).glob("*"))
+        self.paths = paths
+        self.transforms1 = A.Compose(
+            [A.Resize(width=256, height=256),], additional_targets={"image0": "image"},
         )
-        self.transforms2 = transforms.Compose([
-            transforms.Resize(size=(286, 286), antialias=True),
-            transforms.RandomCrop(size=(256, 256)),
-        ])
-        self.train = train
-    
+        self.transform_input = A.Compose(
+            [
+                A.HorizontalFlip(p=0.5),
+                A.ColorJitter(p=0.2),
+                A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], max_pixel_value=255.0,),
+                ToTensorV2(),
+            ]
+        )
+        self.transforms_real = A.Compose(
+            [
+                A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], max_pixel_value=255.0,),
+                ToTensorV2(),
+            ]
+        )
     def load_image(self, idx: int) -> Image.Image:
         image_path = self.paths[idx]
         return Image.open(image_path)
@@ -157,18 +168,18 @@ class Facades(Dataset):
         return len(self.paths)
     
     def __getitem__(self, idx: int) -> torch.Tensor:
-        img = self.load_image(idx)
+        img = np.array(self.load_image(idx))
+        real = img[:, :256, :]
+        input = img[:, 256:, :]
         
-        img_ten = self.transforms1(img)
+        augment = self.transforms1(image=input, image0=real)
+        input = augment["image"]
+        real = augment["image0"]
+        
+        input = self.transform_input(image=input)["image"]
+        real = self.transforms_real(image=real)["image"]
 
-        real = img_ten[:, :, :256]
-        input = img_ten[:, :, 256:]
-
-        if self.train:
-            real = self.transforms2(real)
-            input = self.transforms2(input)
-
-        return real, input
+        return input, real
 
 def test():
     torch.cuda.empty_cache()
