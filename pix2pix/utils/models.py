@@ -14,7 +14,7 @@ class Generator(nn.Module):
         
         # down
         self.down1 = nn.Sequential(
-            nn.Conv2d(img_channels, features, 4, 2, 1, bias=False, padding_mode="reflect"),
+            nn.Conv2d(img_channels, features, 4, 2, 1, padding_mode="reflect"),
             nn.LeakyReLU(0.2)
         )
         self.down2 = self._down_block(features, features*2, 4, 2, 1)
@@ -23,8 +23,8 @@ class Generator(nn.Module):
         self.down5 = self._down_block(features*8, features*8, 4, 2, 1)
         self.down6 = self._down_block(features*8, features*8, 4, 2, 1)
         self.down7 = self._down_block(features*8, features*8, 4, 2, 1)
-        self.down8 = nn.Sequential(
-            nn.Conv2d(features*8, features*8, 4, 2, 1, bias=False, padding_mode="reflect"),
+        self.down8 = nn.Sequential( # was 8
+            nn.Conv2d(features*8, features*8, 4, 2, 1),
             nn.ReLU()
         )
         
@@ -46,29 +46,6 @@ class Generator(nn.Module):
         # NOTE: self._apply(fn) is NOT inplace and returns an object
         self.apply(self._init_weights)
     
-    
-    def _down_block(self, in_channels, out_channels, kernel, stride, padding): 
-        return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel, stride, padding, bias=False, padding_mode="reflect"),
-            nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(0.2)
-        )
-    
-    def _up_block(self, in_channels, out_channels, kernel, stride, padding, dropout=False):
-        if dropout:
-            return nn.Sequential(
-                nn.ConvTranspose2d(in_channels, out_channels, kernel, stride, padding, bias=False),
-                nn.BatchNorm2d(out_channels),
-                nn.Dropout2d(0.5),
-                nn.ReLU()
-            )
-        else:
-            return nn.Sequential(
-                nn.ConvTranspose2d(in_channels, out_channels, kernel, stride, padding, bias=False),
-                nn.BatchNorm2d(out_channels),
-                nn.LeakyReLU(0.2)
-            )
-        
     def forward(self, x):
         # down
         d1 = self.down1(x)
@@ -91,6 +68,30 @@ class Generator(nn.Module):
         final = self.final(torch.cat([u7, d1], dim=1))
 
         return final
+    
+    def _down_block(self, in_channels, out_channels, kernel, stride, padding): 
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel, stride, padding, padding_mode="reflect"),
+            nn.BatchNorm2d(out_channels),
+            nn.LeakyReLU(0.2)
+        )
+    
+    def _up_block(self, in_channels, out_channels, kernel, stride, padding, dropout=False):
+        if dropout:
+            return nn.Sequential(
+                nn.ConvTranspose2d(in_channels, out_channels, kernel, stride, padding),
+                nn.BatchNorm2d(out_channels),
+                nn.Dropout(0.5),
+                nn.ReLU()
+            )
+        else:
+            return nn.Sequential(
+                nn.ConvTranspose2d(in_channels, out_channels, kernel, stride, padding),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU()
+            )
+        
+
         
     def _init_weights(self, module):
         if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
@@ -101,18 +102,15 @@ class Discriminator(nn.Module):
     def __init__(self, features:int = 64, img_channels:int = 3):
         super(Discriminator, self).__init__() 
         self.initial = nn.Sequential(
-            nn.Conv2d(img_channels*2, features, 4, 2, 1, bias=False),
+            nn.Conv2d(img_channels*2, features, kernel_size=4, stride=2, padding=1, padding_mode="reflect"),
             nn.LeakyReLU(0.2)
         )
         self.layers = nn.Sequential(
-            self._block(features, features*2, 4, 2, 1),
-            self._block(features*2, features*4, 4, 2, 1),
-            self._block(features*4, features*8, 4, 1, 1)
+            self._block(features, features*2, 2),
+            self._block(features*2, features*4, 2),
+            self._block(features*4, features*8, 1)
         )
-        self.final = nn.Sequential(
-            nn.Conv2d(features*8, 1, 4, 1, 1, bias=False),
-            nn.Sigmoid()
-        )
+        self.final = nn.Conv2d(features*8, 1, kernel_size=4, stride=1, padding=1, padding_mode="reflect")
         
         # apply initialization in place
         self.apply(self._init_weights)
@@ -124,9 +122,9 @@ class Discriminator(nn.Module):
         x = self.final(x)
         return x
 
-    def _block(self, in_channels, out_channels, kernel, stride, padding):
+    def _block(self, in_channels, out_channels, stride):
         return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel, stride, padding, bias=False),
+            nn.Conv2d(in_channels, out_channels, 4, stride, padding=1, bias=False, padding_mode="reflect"),
             nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(0.2)
         )
@@ -138,7 +136,7 @@ class Discriminator(nn.Module):
         
 class Facades(Dataset):
     
-    def __init__(self, targ_dir: str, train: bool) -> None:
+    def __init__(self, targ_dir: str) -> None:
         paths = list(Path(targ_dir).glob("*/*")) 
         if not paths:
             paths = list(Path(targ_dir).glob("*"))
@@ -170,23 +168,23 @@ class Facades(Dataset):
     def __getitem__(self, idx: int) -> torch.Tensor:
         img = np.array(self.load_image(idx))
         real = img[:, :256, :]
-        input = img[:, 256:, :]
+        input_ = img[:, 256:, :]
         
-        augment = self.transforms1(image=input, image0=real)
-        input = augment["image"]
+        augment = self.transforms1(image=input_, image0=real)
+        input_ = augment["image"]
         real = augment["image0"]
         
-        input = self.transform_input(image=input)["image"]
+        input_ = self.transform_input(image=input_)["image"]
         real = self.transforms_real(image=real)["image"]
 
-        return input, real
+        return input_, real
 
 def test():
     torch.cuda.empty_cache()
     x = torch.randn((1, 3, 256, 256))
-    gen = Generator()
+    # gen = Generator()
     disc = Discriminator()
-    print(f"Generator output shape: {gen(x).size()}")
+    # print(f"Generator output shape: {gen(x).size()}")
     print(f"Discriminator output shape: {disc(x, x).size()}")
 
 
