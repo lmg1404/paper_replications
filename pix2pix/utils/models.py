@@ -167,8 +167,8 @@ class Facades(Dataset):
     
     def __getitem__(self, idx: int) -> torch.Tensor:
         img = np.array(self.load_image(idx))
-        real = img[:, :256, :]
-        input_ = img[:, 256:, :]
+        real = img[:, :600, :]
+        input_ = img[:, 600:, :]
         
         augment = self.transforms1(image=input_, image0=real)
         input_ = augment["image"]

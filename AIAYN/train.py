@@ -7,7 +7,7 @@ import torch.optim as optim
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from model import Transformer, Paraphrase, custom_collate_fn, CustomOptimizer, checkpoint
+from model import *
 from tqdm import tqdm
 import spacy
 import argparse
@@ -54,6 +54,7 @@ optimus.train()
 # set up or optimizer such that we have our learning rate set
 adam = optim.Adam(optimus.parameters(), lr=LR, betas=(BETA_1, BETA_2), eps=EPISILON)
 optimizer = CustomOptimizer(adam, EMBED_DIM, WARMUP_STEPS)
+padding_id = paraphrase_data.get_pad_id()
 
 # TensorBoard
 writer = SummaryWriter(f"logs/loss")
@@ -68,8 +69,10 @@ for epoch in range(EPOCHS):
         trg = trg.to(device)
         B, T = trg.size() 
         total_loss = 0
+        src_mask = make_padding_mask(src, padding_id)
+        trg_mask = make_padding_mask(trg, padding_id)
         for i in range(1, T):
-            pred = optimus(src, trg[:, :i]) # source isn't changing, we are teacher forcing otherwise it would take much longer to train
+            pred = optimus(src, trg[:, :i], src_mask, trg_mask[:T]) # source isn't changing, we are teacher forcing otherwise it would take much longer to train
             pred = pred[:, -1, :] # focus on the last time step?
             loss = F.cross_entropy(pred, trg[:, i]) # we show the next word, remember our output is what the next token will be not the entire sentence!
             total_loss += loss

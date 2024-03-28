@@ -22,7 +22,7 @@ args = parser.parse_args()
 
 # hyperparameters
 LEARNING_RATE = 2e-4            # same as dc gan
-BATCH_SIZE = 1                  # facades was done with batch size of 1
+BATCH_SIZE = 16                  # facades was done with batch size of 1
 IMAGE_SIZE = 256
 CHANNEL_IMG = 3                 # check this
 EPOCHS = args.epochs            # they trained the facades for 200 epochs, that's feasible on my machine
@@ -35,8 +35,8 @@ FEATURES_GEN = 64
     
 # import dataset + preprocess already inside the object, maybe for inference we make another object?
 # need to be in ~/pix2pix/
-dataset = Facades(targ_dir="../data/facades/train/")
-validation = Facades(targ_dir="../data/facades/val/")
+dataset = Facades(targ_dir="../data/maps/train/")
+validation = Facades(targ_dir="../data/maps/val/")
 loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 # initialize our models and set them to train

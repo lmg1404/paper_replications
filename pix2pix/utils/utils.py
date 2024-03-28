@@ -3,7 +3,7 @@ from torchvision.utils import save_image
 import numpy.random as random
 
 def train_step(gen, disc, opt_disc, opt_gen, device, loop, bce, l1, LAMBDA, epoch, EPOCHS):
-    for _, (x, y) in enumerate(loop):
+    for _, (y, x) in enumerate(loop):
         # real and base set to device or it will crash, no need for latent space here
         x = x.to(device)
         y = y.to(device)
@@ -57,7 +57,7 @@ def save_images(gen, validation, device, epoch, l1, LAMBDA):
     j = random.randint(0, len(validation))
     s = 0
     with torch.no_grad():
-        for i, (x, y) in enumerate(validation):
+        for i, (y, x) in enumerate(validation):
             x, y = x[None, :], y[None, :]
             x = x.to(device)
             y = y.to(device)

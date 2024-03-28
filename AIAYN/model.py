@@ -27,7 +27,7 @@ class Head(nn.Module):
         
         self.dropout = nn.Dropout(D_PROB)
     
-    def forward(self, key, query, value):
+    def forward(self, key, query, value, padding_mask=None):
         # t for tokens, so I think this is words in this case
         _, t, d_k = key.size() 
         k = self.key(key)
@@ -40,6 +40,10 @@ class Head(nn.Module):
                 qk = qk.masked_fill(self.mask[:t, :t] == 0, float('-inf'))
             except Exception as e:
                 assert f"{Exception}, shapes qk: {qk.size()} and mask: {self.mask[:t, :t].size()}"
+        
+        # TODO: padding mask
+        if torch.is_tensor(padding_mask):
+          qk = qk.masked_fill(padding_mask == 1, float('-inf'))
             
         # 0 is among batches so ith, jth inputs in each batch add to 1, we don't want this
         # 1 is through the columns, which is the word so maybe
@@ -61,9 +65,9 @@ class MultiHeadAttention(nn.Module):
         # TODO: figure out dims
         self.linear = nn.Linear(in_features=embed_dim, out_features=embed_dim)
     
-    def forward(self, key, query, value):
+    def forward(self, key, query, value, padding_mask=None):
         # we know dim -1 will be dim_model // num_heads so cat returns to dim_model
-        cat = torch.cat([head(key, query, value) for head in self.multihead], dim=-1)
+        cat = torch.cat([head(key, query, value, padding_mask) for head in self.multihead], dim=-1)
         out = self.linear(cat)
         return out
 
@@ -90,8 +94,8 @@ class EncoderBlock(nn.Module):
         self.ln2 = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(D_PROB)
     
-    def forward(self, x):
-        x = self.mh(x, x, x)
+    def forward(self, x, padding_mask):
+        x = self.mh(x, x, x, padding_mask)
         x = self.ln1(x + self.dropout(x))
         x = self.ff(x)
         x = self.ln2(x + self.dropout(x))
@@ -105,15 +109,15 @@ class DecoderBlock(nn.Module):
         self.ln1 = nn.LayerNorm(embed_dim)
         self.mh2 = MultiHeadAttention(num_heads, head_dim, embed_dim, False)
         self.ln2 = nn.LayerNorm(embed_dim)
-        self.ff  = FeedForward(embed_dim) # TODO: fix
+        self.ff  = FeedForward(embed_dim) 
         self.ln3 = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(D_PROB)
     
-    def forward(self, x, enc: torch.Tensor):
+    def forward(self, x, enc: torch.Tensor, padding_mask):
         # assert x.size() == enc.size(), f"Encoder output and decoder sublayer 1 output must be same shape: {enc.size()} {x.size()}"
-        x = self.mh1(x, x, x)
+        x = self.mh1(x, x, x, padding_mask)
         x = self.ln1(x + self.dropout(x))
-        x = self.mh2(enc, x, enc)
+        x = self.mh2(enc, x, enc, padding_mask)
         x = self.ln2(x + self.dropout(x))
         x = self.ff(x)
         x = self.ln3(x + self.dropout(x))
@@ -129,32 +133,33 @@ class Transformer(nn.Module):
         super().__init__()
         self.in_emb = nn.Embedding(vocab_size, embed_dim) # (vocabsize x embed_dim) each token/word will have a 512 dim representation
         self.out_emb = nn.Embedding(vocab_size, embed_dim)
-        self.encoder = nn.Sequential(*[EncoderBlock(num_heads, embed_dim) for _ in range(N)])
+        self.encoder = nn.ModuleList([EncoderBlock(num_heads, embed_dim) for _ in range(N)])
         self.decoder = nn.ModuleList([DecoderBlock(num_heads, embed_dim) for _ in range(N)])
         self.lin = nn.Linear(embed_dim, vocab_size)
         self.dropout = nn.Dropout(D_PROB)
         self.register_buffer('pos_enc', self.pos_encoding(context, embed_dim))
         self.apply(self._init_weights)
     
-    def forward(self, src, trg):
-        x = self.decode(trg, self.encode(src))
+    def forward(self, src, trg, src_mask, trg_mask):
+        x = self.decode(trg, self.encode(src, src_mask), trg_mask)
         x = self.lin(x)
         return x
     
     # better to separate encode and decode so we can see what's happening downstream during inference
-    def encode(self, x):
+    def encode(self, x, padding_mask):
         x = self.in_emb(x)
         _, T, _ = x.size()
         x = self.dropout(x + self.pos_enc[:T])
-        x = self.encoder(x)
+        for encoder in self.encoder:
+          x = encoder(x, padding_mask)
         return x
     
-    def decode(self, x, src):
+    def decode(self, x, src, padding_mask):
         x = self.out_emb(x)
         _, T, _ = x.size()
         x = self.dropout(x + self.pos_enc[:T])
         for decoder in self.decoder:
-            x = decoder(x, src)
+            x = decoder(x, src, padding_mask)
         return x
     
     def pos_encoding(self, max_len, d_model):
@@ -242,6 +247,9 @@ class Paraphrase(Dataset):
                 raise
         except Exception as e:
             raise AttributeError(f"Takes stoi, itos, or both. You gave {map}")
+
+    def get_pad_id(self):
+        return self.stoi["<p>"]
 
     # need to find the max length so that we can pad accordingly
     def _vocabulary(self):
@@ -332,3 +340,6 @@ def checkpoint(model, optimizer, batch, epoch):
         "batch": batch
     }, f"models/optimus_checkpoints_epoch{epoch}_batch{batch}.pth")
     
+def make_padding_mask(input_ids, padding_token_id):
+    mask = (input_ids == padding_token_id).type(torch.float32)
+    return mask
