@@ -13,7 +13,7 @@ import spacy
 import argparse
 
 # set device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 parser = argparse.ArgumentParser(description="Getting some hyper parameters")
 parser.add_argument('--batchsize', type=int, help='batchsize for training our model', required=True)
