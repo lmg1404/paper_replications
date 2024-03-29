@@ -20,7 +20,7 @@ class Head(nn.Module):
         super().__init__()
         self.key = nn.Linear(in_features=embed_dim, out_features=head_dim, bias=False)
         self.query = nn.Linear(in_features=embed_dim, out_features=head_dim, bias=False)
-        self.value= nn.Linear(in_features=embed_dim, out_features=head_dim, bias=False)
+        self.value = nn.Linear(in_features=embed_dim, out_features=head_dim, bias=False)
 
         self.register_buffer('mask', torch.tril(torch.ones(head_dim, head_dim), diagonal=1))
         self.mask_bool = mask
@@ -33,23 +33,21 @@ class Head(nn.Module):
         k = self.key(key)
         q = self.query(query)
         v = self.value(value)
-        qk = (q@k.transpose(-1, -2)) / d_k ** 0.5
-        
+        qk = (q@k.transpose(-2, -1)) / d_k ** 0.5
+
         if self.mask_bool:
             try:
                 qk = qk.masked_fill(self.mask[:t, :t] == 0, float('-inf'))
             except Exception as e:
                 assert f"{Exception}, shapes qk: {qk.size()} and mask: {self.mask[:t, :t].size()}"
-        
         # TODO: padding mask
         if torch.is_tensor(padding_mask):
-          qk = qk.masked_fill(padding_mask == 1, float('-inf'))
-            
+            qk = qk.masked_fill(padding_mask == 1, float('-inf'))
         # 0 is among batches so ith, jth inputs in each batch add to 1, we don't want this
         # 1 is through the columns, which is the word so maybe
         # 2 is the word vector entirely
         qk = F.softmax(qk, dim=-1)
-        attn = qk @ v
+        attn = torch.matmul(qk, v)
         
         # dropout occurs at the end of the sublayer before adding residual connections and layernorming
         attn = self.dropout(attn)
@@ -113,11 +111,11 @@ class DecoderBlock(nn.Module):
         self.ln3 = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(D_PROB)
     
-    def forward(self, x, enc: torch.Tensor, padding_mask):
+    def forward(self, x, enc: torch.Tensor, padding_mask, enc_padding_mask):
         # assert x.size() == enc.size(), f"Encoder output and decoder sublayer 1 output must be same shape: {enc.size()} {x.size()}"
         x = self.mh1(x, x, x, padding_mask)
         x = self.ln1(x + self.dropout(x))
-        x = self.mh2(enc, x, enc, padding_mask)
+        x = self.mh2(enc, x, enc, enc_padding_mask)
         x = self.ln2(x + self.dropout(x))
         x = self.ff(x)
         x = self.ln3(x + self.dropout(x))
@@ -141,7 +139,7 @@ class Transformer(nn.Module):
         self.apply(self._init_weights)
     
     def forward(self, src, trg, src_mask, trg_mask):
-        x = self.decode(trg, self.encode(src, src_mask), trg_mask)
+        x = self.decode(trg, self.encode(src, src_mask), trg_mask, src_mask)
         x = self.lin(x)
         return x
     
@@ -154,12 +152,12 @@ class Transformer(nn.Module):
           x = encoder(x, padding_mask)
         return x
     
-    def decode(self, x, src, padding_mask):
+    def decode(self, x, src, padding_mask, enc_padding_mask):
         x = self.out_emb(x)
         _, T, _ = x.size()
         x = self.dropout(x + self.pos_enc[:T])
         for decoder in self.decoder:
-            x = decoder(x, src, padding_mask)
+            x = decoder(x, src, padding_mask, enc_padding_mask)
         return x
     
     def pos_encoding(self, max_len, d_model):
