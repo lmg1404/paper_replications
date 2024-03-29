@@ -74,7 +74,7 @@ for epoch in range(EPOCHS):
         for i in range(1, T):
             pred = optimus(src, trg[:, :i], src_mask[:, None, :], trg_mask[:, None, :i]) # source isn't changing, we are teacher forcing otherwise it would take much longer to train
             pred = pred[:, -1, :] # focus on the last time step
-            loss = F.cross_entropy(pred, trg[:, i]) # we show the next word, remember our output is what the next token will be not the entire sentence!
+            loss = F.cross_entropy(pred, trg[:, i], ignore_index=padding_id) # we show the next word, remember our output is what the next token will be not the entire sentence!
             total_loss += loss
         avg_loss = total_loss / T
         
