@@ -93,10 +93,10 @@ class EncoderBlock(nn.Module):
         self.dropout = nn.Dropout(D_PROB)
     
     def forward(self, x, padding_mask):
-        x = self.mh(x, x, x, padding_mask)
-        x = self.ln1(x + self.dropout(x))
-        x = self.ff(x)
-        x = self.ln2(x + self.dropout(x))
+        x_ = self.mh(x, x, x, padding_mask)
+        x = self.ln1(x + self.dropout(x_))
+        x_ = self.ff(x)
+        x = self.ln2(x + self.dropout(x_))
         return x
 
 class DecoderBlock(nn.Module):
@@ -113,12 +113,12 @@ class DecoderBlock(nn.Module):
     
     def forward(self, x, enc: torch.Tensor, padding_mask, enc_padding_mask):
         # assert x.size() == enc.size(), f"Encoder output and decoder sublayer 1 output must be same shape: {enc.size()} {x.size()}"
-        x = self.mh1(x, x, x, padding_mask)
-        x = self.ln1(x + self.dropout(x))
-        x = self.mh2(enc, x, enc, enc_padding_mask)
-        x = self.ln2(x + self.dropout(x))
-        x = self.ff(x)
-        x = self.ln3(x + self.dropout(x))
+        x_ = self.mh1(x, x, x, padding_mask)
+        x = self.ln1(x + self.dropout(x_))
+        x_ = self.mh2(enc, x, enc, enc_padding_mask)
+        x = self.ln2(x + self.dropout(x_))
+        x_ = self.ff(x)
+        x = self.ln3(x + self.dropout(x_))
         return x
 
 
